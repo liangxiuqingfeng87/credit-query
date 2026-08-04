@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>学分查询</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  background: #f5f5f5;
+  min-height: 100vh;
+}
+.header {
+  background: linear-gradient(135deg, #1a73e8, #1557b0);
+  color: #fff;
+  padding: 16px 20px;
+  text-align: center;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2px 8px rgba(0,0,0,.15);
+}
+.header h1 { font-size: 20px; font-weight: 600; }
+.header .stats { font-size: 13px; opacity: .85; margin-top: 4px; }
+.notice-box {
+  margin: 10px 12px;
+  padding: 12px 14px;
+  background: #fffbe6;
+  border: 1px solid #ffe58f;
+  border-radius: 10px;
+  font-size: 13px;
+  color: #8c6d00;
+  line-height: 1.8;
+}
+.notice-box .notice-title {
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 4px;
+  color: #5c4700;
+}
+.notice-box .heart { color: #e81123; }
+.search-box {
+  padding: 12px 16px;
+  background: #fff;
+  border-bottom: 1px solid #e0e0e0;
+  position: sticky;
+  top: 80px;
+  z-index: 99;
+}
+.search-input {
+  width: 100%;
+  height: 44px;
+  border: 2px solid #e0e0e0;
+  border-radius: 22px;
+  padding: 0 20px;
+  font-size: 16px;
+  outline: none;
+  transition: border-color .2s;
+  background: #f8f9fa;
+}
+.search-input:focus { border-color: #1a73e8; background: #fff; }
+.search-input::placeholder { color: #aaa; }
+.result-info {
+  padding: 8px 16px;
+  font-size: 13px;
+  color: #888;
+  background: #fff;
+}
+.list { padding: 8px 0 80px; }
+.card {
+  margin: 8px 12px;
+  background: #fff;
+  border-radius: 12px;
+  padding: 14px 16px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.08);
+  cursor: pointer;
+  transition: transform .15s;
+}
+.card:active { transform: scale(.98); }
+.card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+.card-name {
+  font-size: 17px;
+  font-weight: 600;
+  color: #222;
+  flex: 1;
+}
+.card-badge {
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 10px;
+  font-weight: 500;
+  white-space: nowrap;
+  margin-left: 8px;
+}
+.badge-done { background: #e6f4ea; color: #1e7e34; }
+.badge-undone { background: #fce8e6; color: #c5221f; }
+.card-unit {
+  font-size: 13px;
+  color: #666;
+  margin-top: 4px;
+}
+.card-scores {
+  display: flex;
+  gap: 16px;
+  margin-top: 8px;
+  font-size: 14px;
+}
+.score-item {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+.score-label { color: #888; font-size: 12px; }
+.score-val { font-weight: 600; color: #333; }
+.score-val.gap { color: #c5221f; }
+.score-val.ok { color: #1e7e34; }
+.card-detail {
+  display: none;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed #e0e0e0;
+}
+.card-detail.show { display: block; }
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+  font-size: 13px;
+  color: #555;
+}
+.detail-subject { flex: 1; }
+.detail-scores { text-align: right; }
+.detail-gap {
+  color: #c5221f;
+  font-weight: 500;
+  margin-left: 8px;
+}
+.empty {
+  text-align: center;
+  padding: 60px 20px;
+  color: #aaa;
+}
+.empty-icon { font-size: 48px; margin-bottom: 12px; }
+.empty-text { font-size: 15px; }
+.hint {
+  text-align: center;
+  padding: 40px 20px;
+  color: #bbb;
+  font-size: 14px;
+}
+.quick-links {
+  display: flex;
+  gap: 8px;
+  padding: 10px 16px;
+  background: #fff;
+  border-bottom: 1px solid #e0e0e0;
+  flex-wrap: wrap;
+}
+.quick-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border-radius: 16px;
+  font-size: 12px;
+  text-decoration: none;
+  border: 1px solid #e0e0e0;
+  color: #1a73e8;
+  background: #f0f6ff;
+  transition: all .2s;
+  white-space: nowrap;
+}
+.quick-link:active { background: #d2e3fc; }
+.quick-link .link-icon { font-size: 14px; }
+.footer {
+  text-align: center;
+  padding: 16px;
+  font-size: 12px;
+  color: #bbb;
+  position: fixed;
+  bottom: 0;
+  width: 100%;
+  background: #f5f5f5;
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>2026年继续医学教育学分查询</h1>
+</div>
+
+<div class="notice-box">
+  <div class="notice-title">26年学分查分流程</div>
+  国家平台（先上）☞ 省/市级平台（后上），自己可以不间断在省/市平台查分！！！<br>
+  <span class="heart">♥♥♥</span> 只要国家平台能查到学分，就没的问题了，省/市级查分系统，晚一点同步数据过去。（✅ 着急用学分的老师，可以先从国家平台打印学分证明。）<br>
+  <br>
+  原始学习网站账号为：<b>身份证号</b>，密码为 <b>Aa@123456</b>
+</div>
+
+<div class="search-box">
+  <input type="text" class="search-input" id="searchInput"
+    placeholder="输入完整姓名或18位身份证号查询"
+    autocomplete="off" autocorrect="off" autocapitalize="off">
+  <div class="quick-links" style="padding:8px 0 0; border-bottom:none; background:transparent;">
+    <a href="https://www.jumingedu.com/" target="_blank" class="quick-link">
+      <span class="link-icon">📚</span> 原始学习网址
+    </a>
+    <a href="https://icme.chinacpd.cn/certificateQuery" target="_blank" class="quick-link">
+      <span class="link-icon">🔗</span> 国家平台查询
+    </a>
+    <a href="http://202.61.90.26:9000/#/?functionType=creditQuery" target="_blank" class="quick-link">
+      <span class="link-icon">🔗</span> 省平台查询
+    </a>
+  </div>
+</div>
+
+<div class="result-info" id="resultInfo" style="display:none"></div>
+<div class="list" id="list"></div>
+<div class="footer">数据来源：26年工作表格 · 更新时间：2026年8月</div>
+
+<script>
+// 数据将在页面加载后通过 fetch 获取
+let DATA = [];
+let dataLoaded = false;
+const MAX_RESULTS = 200;
+
+async function loadData() {
+  try {
+    const resp = await fetch('query_compact.json');
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    DATA = await resp.json();
+    dataLoaded = true;
+    updateStats();
+    showHint();
+  } catch(e) {
+    console.error('数据加载失败:', e);
+    // 静态数字已内嵌在 HTML 中，搜索功能不可用但不影响显示
+    document.getElementById('list').innerHTML = '<div class="empty"><div class="empty-text">数据加载失败，请检查网络后刷新重试</div></div>';
+  }
+}
+
+function updateStats() {
+  const total = DATA.length;
+  const done = DATA.filter(p => p.dn).length;
+  document.getElementById('totalCount').textContent = total;
+  document.getElementById('doneCount').textContent = done;
+}
+
+function showHint() {
+  document.getElementById('list').innerHTML = '<div class="hint">在上方输入姓名或身份证号开始查询</div>';
+}
+
+function search(query) {
+  if (!dataLoaded) return;
+  const q = query.trim();
+  if (!q) {
+    showHint();
+    document.getElementById('resultInfo').style.display = 'none';
+    return;
+  }
+
+  // 精确匹配：姓名完全一致 或 身份证号完全一致
+  const results = [];
+  for (const p of DATA) {
+    if (p.n === q || p.i === q) {
+      results.push(p);
+      if (results.length >= MAX_RESULTS) break;
+    }
+  }
+
+  document.getElementById('resultInfo').style.display = results.length ? 'block' : 'none';
+  document.getElementById('resultInfo').textContent = results.length
+    ? `找到 ${results.length} 条结果` + (results.length >= MAX_RESULTS ? '（仅显示前200条）' : '')
+    : '';
+
+  const listEl = document.getElementById('list');
+  if (!results.length) {
+    listEl.innerHTML = '<div class="empty"><div class="empty-icon">🔍</div><div class="empty-text">未找到匹配结果</div></div>';
+    return;
+  }
+
+  listEl.innerHTML = results.map(p => {
+    const badgeClass = p.dn ? 'badge-done' : 'badge-undone';
+    const badgeText = p.dn ? '已达标' : (p.j || `差${p.g}分`);
+    const gapClass = p.dn ? 'ok' : 'gap';
+    const gapText = p.dn ? '已完成' : `差${p.g}分`;
+
+    let detailHtml = '';
+    if (p.s && p.s.length > 0) {
+      detailHtml = p.s.map(s => {
+        const sg = s.r - s.sc;
+        return `<div class="detail-row">
+          <span class="detail-subject">${s.sn}</span>
+          <span class="detail-scores">${s.sc}/${s.r}分${sg > 0 ? `<span class="detail-gap">差${sg}分</span>` : ' ✅'}</span>
+        </div>`;
+      }).join('');
+    }
+
+    return `<div class="card" onclick="this.querySelector('.card-detail').classList.toggle('show')">
+      <div class="card-top">
+        <span class="card-name">${p.n}</span>
+        <span class="card-badge ${badgeClass}">${badgeText}</span>
+      </div>
+      <div class="card-unit">${p.u || ''}</div>
+      <div class="card-scores">
+        <div class="score-item"><span class="score-label">所需</span><span class="score-val">${p.tr}</span></div>
+        <div class="score-item"><span class="score-label">已得</span><span class="score-val">${p.ts}</span></div>
+        <div class="score-item"><span class="score-label">差距</span><span class="score-val ${gapClass}">${gapText}</span></div>
+      </div>
+      ${detailHtml ? `<div class="card-detail">${detailHtml}</div>` : ''}
+      ${detailHtml ? '<div style="text-align:center;color:#aaa;font-size:11px;margin-top:4px;">点击查看学科明细</div>' : ''}
+    </div>`;
+  }).join('');
+}
+
+document.getElementById('searchInput').addEventListener('input', function(e) {
+  search(e.target.value);
+});
+
+// 初始加载
+loadData();
+</script>
+</body>
+</html>
