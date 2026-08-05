@@ -231,18 +231,30 @@ let dataLoaded = false;
 const MAX_RESULTS = 200;
 
 async function loadData() {
-  try {
-    const resp = await fetch('query_compact.json');
-    if (!resp.ok) throw new Error('HTTP ' + resp.status);
-    DATA = await resp.json();
-    dataLoaded = true;
-    updateStats();
-    showHint();
-  } catch(e) {
-    console.error('数据加载失败:', e);
-    // 静态数字已内嵌在 HTML 中，搜索功能不可用但不影响显示
-    document.getElementById('list').innerHTML = '<div class="empty"><div class="empty-text">数据加载失败，请检查网络后刷新重试</div></div>';
+  // 优先从 jsDelivr CDN 加载（自动镜像 GitHub 最新数据）
+  // 备用：本地文件（部署时的快照）
+  const cdnUrl = 'https://cdn.jsdelivr.net/gh/liangxiuqingfeng87/credit-query@main/query_compact.json';
+  const localUrl = 'query_compact.json';
+  const cacheBust = '?t=' + Date.now();
+
+  // 尝试 CDN → 本地 两次加载
+  for (const baseUrl of [cdnUrl, localUrl]) {
+    try {
+      const resp = await fetch(baseUrl + cacheBust);
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      DATA = await resp.json();
+      dataLoaded = true;
+      updateStats();
+      showHint();
+      return; // 加载成功，退出
+    } catch(e) {
+      console.warn('数据源加载失败，尝试下一个:', baseUrl, e);
+    }
   }
+
+  // 所有数据源都失败
+  console.error('所有数据源加载失败');
+  document.getElementById('list').innerHTML = '<div class="empty"><div class="empty-text">数据加载失败，请检查网络后刷新重试</div></div>';
 }
 
 function updateStats() {
