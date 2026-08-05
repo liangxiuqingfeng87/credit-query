@@ -177,6 +177,121 @@ body {
 }
 .quick-link:active { background: #d2e3fc; }
 .quick-link .link-icon { font-size: 14px; }
+
+/* 学分明细查询 */
+.credit-query-btn {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  padding: 10px;
+  background: linear-gradient(135deg, #1a73e8, #1557b0);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity .2s;
+}
+.credit-query-btn:active { opacity: .85; }
+.credit-query-btn:disabled { background: #ccc; cursor: not-allowed; }
+.credit-query-panel {
+  display: none;
+  margin-top: 10px;
+  padding: 12px;
+  background: #f8f9fa;
+  border-radius: 10px;
+  border: 1px solid #e0e0e0;
+}
+.credit-query-panel.show { display: block; }
+.credit-captcha-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.credit-captcha-img {
+  height: 40px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.credit-captcha-input {
+  flex: 1;
+  height: 40px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 0 12px;
+  font-size: 15px;
+  outline: none;
+}
+.credit-captcha-input:focus { border-color: #1a73e8; }
+.credit-submit-btn {
+  width: 100%;
+  padding: 10px;
+  background: #1a73e8;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.credit-submit-btn:disabled { background: #ccc; }
+.credit-loading {
+  text-align: center;
+  padding: 20px;
+  color: #888;
+  font-size: 14px;
+}
+.credit-loading .spinner {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 3px solid #e0e0e0;
+  border-top-color: #1a73e8;
+  border-radius: 50%;
+  animation: spin .8s linear infinite;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.credit-error {
+  color: #c5221f;
+  font-size: 13px;
+  padding: 8px 0;
+  text-align: center;
+}
+.credit-result-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.credit-result-table th, .credit-result-table td {
+  padding: 6px 8px;
+  text-align: left;
+  border-bottom: 1px solid #e0e0e0;
+}
+.credit-result-table th {
+  background: #f0f6ff;
+  color: #1a73e8;
+  font-weight: 500;
+}
+.credit-result-table .col-name { width: 45%; }
+.credit-result-table .col-cat { width: 25%; }
+.credit-result-table .col-score { width: 15%; text-align: center; }
+.credit-result-table .col-time { width: 15%; text-align: center; }
+.credit-summary {
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: #e6f4ea;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #1e7e34;
+  text-align: center;
+  font-weight: 500;
+}
+
 .footer {
   text-align: center;
   padding: 16px;
@@ -222,6 +337,7 @@ body {
 
 <div class="result-info" id="resultInfo" style="display:none"></div>
 <div class="list" id="list"></div>
+
 <div class="footer">数据来源：26年工作表格 · 更新时间：2026年8月</div>
 
 <script>
@@ -229,6 +345,9 @@ body {
 let DATA = [];
 let dataLoaded = false;
 const MAX_RESULTS = 200;
+const BACKEND_URL = 'https://0806106e4dddbede-117-177-226-35.serveousercontent.com';
+// 存储当前查询会话
+let creditSessions = {};
 
 async function loadData() {
   // 优先从 jsDelivr CDN 加载（自动镜像 GitHub 最新数据）
@@ -297,6 +416,7 @@ function search(query) {
     return;
   }
 
+  const isIdSearch = /^\d{17}[\dXx]$/.test(q);
   listEl.innerHTML = results.map(p => {
     const badgeClass = p.dn ? 'badge-done' : 'badge-undone';
     const badgeText = p.dn ? '已达标' : (p.j || `差${p.g}分`);
@@ -314,6 +434,23 @@ function search(query) {
       }).join('');
     }
 
+    // 学分明细查询按钮（仅在身份证号搜索时显示）
+    const creditQueryHtml = isIdSearch ? `
+      <button class="credit-query-btn" id="cqbtn-${p.i}" onclick="event.stopPropagation();startCreditQuery('${p.i}')">
+        查询国家平台学分明细
+      </button>
+      <div class="credit-query-panel" id="cqpanel-${p.i}">
+        <div class="credit-captcha-row">
+          <img class="credit-captcha-img" id="cqcaptcha-${p.i}" src="" alt="验证码" onclick="startCreditQuery('${p.i}')" style="display:none;">
+          <input class="credit-captcha-input" id="cqinput-${p.i}" placeholder="输入验证码" maxlength="4" style="display:none;">
+        </div>
+        <button class="credit-submit-btn" id="cqsubmit-${p.i}" onclick="event.stopPropagation();submitCaptcha('${p.i}')" style="display:none;">提交查询</button>
+        <div class="credit-loading" id="cqloading-${p.i}" style="display:none;"><span class="spinner"></span>正在查询国家平台...</div>
+        <div class="credit-error" id="cqerror-${p.i}" style="display:none;"></div>
+        <div class="credit-result-table" id="cqresult-${p.i}" style="display:none;"></div>
+        <div class="credit-summary" id="cqsummary-${p.i}" style="display:none;"></div>
+      </div>` : '';
+
     return `<div class="card" onclick="this.querySelector('.card-detail').classList.toggle('show')">
       <div class="card-top">
         <span class="card-name">${p.n}</span>
@@ -327,6 +464,7 @@ function search(query) {
       </div>
       ${detailHtml ? `<div class="card-detail">${detailHtml}</div>` : ''}
       ${detailHtml ? '<div style="text-align:center;color:#aaa;font-size:11px;margin-top:4px;">点击查看学科明细</div>' : ''}
+      ${creditQueryHtml}
     </div>`;
   }).join('');
 }
@@ -334,6 +472,128 @@ function search(query) {
 document.getElementById('searchInput').addEventListener('input', function(e) {
   search(e.target.value);
 });
+
+// ========== 学分明细查询 ==========
+async function startCreditQuery(idNumber) {
+  const panel = document.getElementById('cqpanel-' + idNumber);
+  const btn = document.getElementById('cqbtn-' + idNumber);
+  const captchaImg = document.getElementById('cqcaptcha-' + idNumber);
+  const captchaInput = document.getElementById('cqinput-' + idNumber);
+  const submitBtn = document.getElementById('cqsubmit-' + idNumber);
+  const loading = document.getElementById('cqloading-' + idNumber);
+  const error = document.getElementById('cqerror-' + idNumber);
+  const result = document.getElementById('cqresult-' + idNumber);
+  const summary = document.getElementById('cqsummary-' + idNumber);
+
+  // Reset all
+  panel.classList.add('show');
+  captchaImg.style.display = 'none';
+  captchaInput.style.display = 'none';
+  submitBtn.style.display = 'none';
+  loading.style.display = 'block';
+  error.style.display = 'none';
+  result.style.display = 'none';
+  summary.style.display = 'none';
+  btn.disabled = true;
+  panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+  try {
+    const resp = await fetch(BACKEND_URL + '/api/credit/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id_number: idNumber })
+    });
+    const data = await resp.json();
+    loading.style.display = 'none';
+
+    if (data.success) {
+      // 保存会话
+      creditSessions[idNumber] = { session_id: data.session_id };
+      // 显示验证码
+      captchaImg.src = 'data:image/jpeg;base64,' + data.captcha_image;
+      captchaImg.style.display = 'block';
+      captchaInput.style.display = 'block';
+      captchaInput.value = '';
+      submitBtn.style.display = 'block';
+      captchaInput.focus();
+    } else {
+      error.textContent = data.error || '获取验证码失败';
+      error.style.display = 'block';
+      btn.disabled = false;
+    }
+  } catch (e) {
+    loading.style.display = 'none';
+    error.textContent = '网络错误，请检查连接后重试';
+    error.style.display = 'block';
+    btn.disabled = false;
+  }
+}
+
+async function submitCaptcha(idNumber) {
+  const sessionInfo = creditSessions[idNumber];
+  if (!sessionInfo) return;
+
+  const captchaInput = document.getElementById('cqinput-' + idNumber);
+  const submitBtn = document.getElementById('cqsubmit-' + idNumber);
+  const loading = document.getElementById('cqloading-' + idNumber);
+  const error = document.getElementById('cqerror-' + idNumber);
+  const result = document.getElementById('cqresult-' + idNumber);
+  const summary = document.getElementById('cqsummary-' + idNumber);
+  const captcha = captchaInput.value.trim();
+
+  if (!captcha) { error.textContent = '请输入验证码'; error.style.display = 'block'; return; }
+
+  captchaInput.style.display = 'none';
+  submitBtn.style.display = 'none';
+  loading.style.display = 'block';
+  error.style.display = 'none';
+
+  try {
+    const resp = await fetch(BACKEND_URL + '/api/credit/query', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session_id: sessionInfo.session_id, captcha: captcha })
+    });
+    const data = await resp.json();
+    loading.style.display = 'none';
+
+    if (data.success) {
+      delete creditSessions[idNumber];
+
+      if (data.items && data.items.length > 0) {
+        // 构建表格
+        let tableHtml = '<table class="credit-result-table"><thead><tr><th class="col-name">课程名称</th><th class="col-cat">学分类别</th><th class="col-score">分值</th><th class="col-time">考核时间</th></tr></thead><tbody>';
+        data.items.forEach(item => {
+          tableHtml += `<tr>
+            <td>${item.course_name || '-'}</td>
+            <td>${item.category || '-'}</td>
+            <td class="col-score">${item.score || '0'}</td>
+            <td class="col-time">${item.exam_time || '-'}</td>
+          </tr>`;
+        });
+        tableHtml += '</tbody></table>';
+        result.innerHTML = tableHtml;
+        result.style.display = 'block';
+
+        summary.innerHTML = `共 ${data.total_courses} 门课程，总学分 <b>${data.total_credits}</b> 分`;
+        summary.style.display = 'block';
+      } else {
+        error.textContent = '未查询到学分明细数据';
+        error.style.display = 'block';
+      }
+    } else {
+      error.textContent = data.error || '查询失败，请重试';
+      error.style.display = 'block';
+      // 重新获取验证码
+      document.getElementById('cqcaptcha-' + idNumber).style.display = 'none';
+    }
+  } catch (e) {
+    loading.style.display = 'none';
+    error.textContent = '网络错误，请检查连接后重试';
+    error.style.display = 'block';
+    document.getElementById('cqcaptcha-' + idNumber).style.display = 'none';
+  }
+}
 
 // 初始加载
 loadData();
