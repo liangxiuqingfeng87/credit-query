@@ -436,19 +436,30 @@ document.getElementById('searchInput').addEventListener('input', function(e) {
 async function queryCreditDetail(idNumber) {
   const panel = document.getElementById('cqpanel-' + idNumber);
   const btn = document.getElementById('cqbtn-' + idNumber);
-  const loading = document.getElementById('cqloading-' + idNumber);
-  const error = document.getElementById('cqerror-' + idNumber);
-  const result = document.getElementById('cqresult-' + idNumber);
-  const summary = document.getElementById('cqsummary-' + idNumber);
 
-  // Reset
-  panel.classList.add('show');
-  loading.style.display = 'block';
-  error.style.display = 'none';
-  result.style.display = 'none';
-  summary.style.display = 'none';
-  btn.disabled = true;
-  panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  if (!panel || !btn) {
+    alert('页面元素异常，请刷新后重试');
+    return;
+  }
+
+  const loading = document.getElementById('cqloading-' + idNumber);
+  const errorEl = document.getElementById('cqerror-' + idNumber);
+  const resultEl = document.getElementById('cqresult-' + idNumber);
+  const summaryEl = document.getElementById('cqsummary-' + idNumber);
+
+  // Reset and show loading
+  try {
+    panel.classList.add('show');
+    loading.style.display = 'block';
+    errorEl.style.display = 'none';
+    if (resultEl) resultEl.style.display = 'none';
+    if (summaryEl) summaryEl.style.display = 'none';
+    btn.disabled = true;
+    panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  } catch (e) {
+    alert('界面异常: ' + e.message);
+    return;
+  }
 
   try {
     const resp = await fetch(BACKEND_URL + '/api/credit/query', {
@@ -468,30 +479,30 @@ async function queryCreditDetail(idNumber) {
           '<th class="col-time">考核时间</th>' +
           '</tr></thead><tbody>';
         data.items.forEach(item => {
-          tableHtml += `<tr>
-            <td>${item.course_name || '-'}</td>
-            <td>${item.category || '-'}</td>
-            <td class="col-score">${item.score || 0}</td>
-            <td class="col-time">${item.exam_time || '-'}</td>
-          </tr>`;
+          tableHtml += '<tr>' +
+            '<td>' + (item.course_name || '-') + '</td>' +
+            '<td>' + (item.category || '-') + '</td>' +
+            '<td class="col-score">' + (item.score || 0) + '</td>' +
+            '<td class="col-time">' + (item.exam_time || '-') + '</td>' +
+            '</tr>';
         });
         tableHtml += '</tbody></table>';
-        result.innerHTML = tableHtml;
-        result.style.display = 'block';
-        summary.innerHTML = `共 <b>${data.total_courses}</b> 门课程，总学分 <b>${data.total_credits}</b> 分`;
-        summary.style.display = 'block';
+        resultEl.innerHTML = tableHtml;
+        resultEl.style.display = 'block';
+        summaryEl.innerHTML = '共 <b>' + data.total_courses + '</b> 门课程，总学分 <b>' + data.total_credits + '</b> 分';
+        summaryEl.style.display = 'block';
       } else {
-        error.textContent = '未查询到学分明细数据';
-        error.style.display = 'block';
+        errorEl.textContent = '未查询到学分明细数据';
+        errorEl.style.display = 'block';
       }
     } else {
-      error.textContent = data.error || '查询失败，请重试';
-      error.style.display = 'block';
+      errorEl.textContent = data.error || '查询失败，请重试';
+      errorEl.style.display = 'block';
     }
   } catch (e) {
     loading.style.display = 'none';
-    error.textContent = '网络错误，请检查连接后重试';
-    error.style.display = 'block';
+    errorEl.textContent = '网络错误: ' + (e.message || '请检查连接后重试');
+    errorEl.style.display = 'block';
   } finally {
     btn.disabled = false;
   }
