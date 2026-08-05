@@ -319,7 +319,7 @@ function search(query) {
         <span class="card-name">${p.n}</span>
         <span class="card-badge ${badgeClass}">${badgeText}</span>
       </div>
-      <div class="card-unit">${p.u || ''}</div>
+      <div class="card-unit">${p.u || ''}${p.p ? ' · 手机号前缀: ' + p.p + '****' : ''}</div>
       <div class="card-scores">
         <div class="score-item"><span class="score-label">所需</span><span class="score-val">${p.tr}</span></div>
         <div class="score-item"><span class="score-label">已得</span><span class="score-val">${p.ts}</span></div>
