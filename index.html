@@ -311,7 +311,7 @@ body {
 let DATA = [];
 let dataLoaded = false;
 const MAX_RESULTS = 200;
-const BACKEND_URL = 'https://0806106e4dddbede-117-177-226-35.serveousercontent.com';
+const BACKEND_URL = 'https://2941cecdb73cec18-117-177-226-35.serveousercontent.com';
 
 async function loadData() {
   // 优先从 jsDelivr CDN 加载（自动镜像 GitHub 最新数据）
@@ -432,81 +432,93 @@ document.getElementById('searchInput').addEventListener('input', function(e) {
   search(e.target.value);
 });
 
-// ========== 学分明细查询 ==========
-async function queryCreditDetail(idNumber) {
-  const panel = document.getElementById('cqpanel-' + idNumber);
-  const btn = document.getElementById('cqbtn-' + idNumber);
+// ========== 学分明细查询（从国家平台获取） ==========
+window.queryCreditDetail = async function(idNumber) {
+  console.log('[学分查询] 开始查询:', idNumber);
+
+  var panel = document.getElementById('cqpanel-' + idNumber);
+  var btn = document.getElementById('cqbtn-' + idNumber);
+  var loading = document.getElementById('cqloading-' + idNumber);
+  var errorEl = document.getElementById('cqerror-' + idNumber);
+  var resultEl = document.getElementById('cqresult-' + idNumber);
+  var summaryEl = document.getElementById('cqsummary-' + idNumber);
 
   if (!panel || !btn) {
-    alert('页面元素异常，请刷新后重试');
+    console.error('[学分查询] DOM元素缺失');
     return;
   }
 
-  const loading = document.getElementById('cqloading-' + idNumber);
-  const errorEl = document.getElementById('cqerror-' + idNumber);
-  const resultEl = document.getElementById('cqresult-' + idNumber);
-  const summaryEl = document.getElementById('cqsummary-' + idNumber);
+  // 显示面板和加载动画
+  panel.classList.add('show');
+  loading.style.display = 'block';
+  errorEl.style.display = 'none';
+  resultEl.style.display = 'none';
+  summaryEl.style.display = 'none';
+  btn.disabled = true;
+  btn.textContent = '查询中...';
+  panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
-  // Reset and show loading
-  try {
-    panel.classList.add('show');
-    loading.style.display = 'block';
-    errorEl.style.display = 'none';
-    if (resultEl) resultEl.style.display = 'none';
-    if (summaryEl) summaryEl.style.display = 'none';
-    btn.disabled = true;
-    panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  } catch (e) {
-    alert('界面异常: ' + e.message);
-    return;
-  }
+  console.log('[学分查询] 请求后端:', BACKEND_URL + '/api/credit/query');
+
+  var controller = new AbortController();
+  var timeoutId = setTimeout(function() { controller.abort(); }, 120000);
 
   try {
-    const resp = await fetch(BACKEND_URL + '/api/credit/query', {
+    var resp = await fetch(BACKEND_URL + '/api/credit/query', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id_number: idNumber })
+      body: JSON.stringify({ id_number: idNumber }),
+      signal: controller.signal
     });
-    const data = await resp.json();
+    clearTimeout(timeoutId);
+    console.log('[学分查询] 响应状态:', resp.status);
+
+    var data = await resp.json();
+    console.log('[学分查询] 返回数据:', data.success ? '成功, ' + data.total_courses + '门课' : '失败: ' + (data.error || ''));
     loading.style.display = 'none';
 
-    if (data.success) {
-      if (data.items && data.items.length > 0) {
-        let tableHtml = '<table class="credit-result-table"><thead><tr>' +
-          '<th class="col-name">课程名称</th>' +
-          '<th class="col-cat">学分类别</th>' +
-          '<th class="col-score">分值</th>' +
-          '<th class="col-time">考核时间</th>' +
-          '</tr></thead><tbody>';
-        data.items.forEach(item => {
-          tableHtml += '<tr>' +
-            '<td>' + (item.course_name || '-') + '</td>' +
-            '<td>' + (item.category || '-') + '</td>' +
-            '<td class="col-score">' + (item.score || 0) + '</td>' +
-            '<td class="col-time">' + (item.exam_time || '-') + '</td>' +
-            '</tr>';
-        });
-        tableHtml += '</tbody></table>';
-        resultEl.innerHTML = tableHtml;
-        resultEl.style.display = 'block';
-        summaryEl.innerHTML = '共 <b>' + data.total_courses + '</b> 门课程，总学分 <b>' + data.total_credits + '</b> 分';
-        summaryEl.style.display = 'block';
-      } else {
-        errorEl.textContent = '未查询到学分明细数据';
-        errorEl.style.display = 'block';
+    if (data.success && data.items && data.items.length > 0) {
+      var html = '<table class="credit-result-table"><thead><tr>' +
+        '<th class="col-name">课程名称</th>' +
+        '<th class="col-cat">学分类别</th>' +
+        '<th class="col-score">分值</th>' +
+        '<th class="col-time">考核时间</th>' +
+        '</tr></thead><tbody>';
+
+      for (var i = 0; i < data.items.length; i++) {
+        var item = data.items[i];
+        html += '<tr><td>' + (item.course_name || '-') + '</td>' +
+          '<td>' + (item.category || '-') + '</td>' +
+          '<td class="col-score">' + (item.score || 0) + '</td>' +
+          '<td class="col-time">' + (item.exam_time || '-') + '</td></tr>';
       }
+      html += '</tbody></table>';
+      resultEl.innerHTML = html;
+      resultEl.style.display = 'block';
+      summaryEl.innerHTML = '共 <b>' + data.total_courses + '</b> 门课程，总学分 <b>' + data.total_credits + '</b> 分';
+      summaryEl.style.display = 'block';
+    } else if (data.success) {
+      errorEl.textContent = '未查询到学分明细数据';
+      errorEl.style.display = 'block';
     } else {
-      errorEl.textContent = data.error || '查询失败，请重试';
+      errorEl.textContent = data.error || '查询失败';
       errorEl.style.display = 'block';
     }
   } catch (e) {
+    clearTimeout(timeoutId);
+    console.error('[学分查询] 异常:', e);
     loading.style.display = 'none';
-    errorEl.textContent = '网络错误: ' + (e.message || '请检查连接后重试');
+    if (e.name === 'AbortError') {
+      errorEl.textContent = '查询超时（2分钟），请重试';
+    } else {
+      errorEl.textContent = '网络错误，请检查连接后重试';
+    }
     errorEl.style.display = 'block';
-  } finally {
-    btn.disabled = false;
   }
-}
+
+  btn.disabled = false;
+  btn.textContent = '查询国家平台学分明细';
+};
 
 // 初始加载
 loadData();
