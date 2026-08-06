@@ -70,16 +70,19 @@ def get_doc_info(cookie):
 
     # 提取 padId 和 domainId（用于导出 API）
     client_vars = data.get("clientVars", {})
+    log(f"clientVars keys: {list(client_vars.keys())[:10]}")
     # 优先使用 globalPadId (格式: domainId$padId)
     global_pad_id = client_vars.get("globalPadId", "")
+    log(f"Using globalPadId: '{global_pad_id}'")
     if "$" in global_pad_id:
         domain_id, pad_id = global_pad_id.split("$", 1)
         internal_doc_id = global_pad_id
+        log(f"Parsed: domain={domain_id}, pad={pad_id}")
     else:
         pad_id = client_vars.get("padId", "")
         domain_id = client_vars.get("domainId", "")
         internal_doc_id = f"{domain_id}${pad_id}" if domain_id and pad_id else DOC_ID
-    log(f"Using globalPadId: {global_pad_id}")
+        log(f"Fallback: padId='{pad_id}', domainId='{domain_id}' -> {internal_doc_id}")
 
     # 找到「举名新表」的 sheet id
     collab_vars = data.get("collab_client_vars", {})
