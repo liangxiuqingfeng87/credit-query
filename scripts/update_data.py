@@ -100,34 +100,78 @@ def get_doc_info(cookie):
 
 def export_sheet_as_csv(cookie, internal_doc_id, sheet_id):
     """导出表格为 CSV 格式并返回内容"""
-    # Step 1: 发起导出请求
-    export_data = {
-        "padId": internal_doc_id.split("$")[-1] if "$" in internal_doc_id else internal_doc_id,
-        "domainId": internal_doc_id.split("$")[0] if "$" in internal_doc_id else "300000000",
-        "exportType": 1,  # 1 = CSV
-    }
+    h = {**HEADERS, "Cookie": cookie}
 
-    # 尝试使用 x-www-form-urlencoded
-    encoded_data = urllib.parse.urlencode(export_data).encode()
+    # 尝试多种格式的导出请求
+    domain_id = internal_doc_id.split("$")[0] if "$" in internal_doc_id else "300000000"
+    pad_id = internal_doc_id.split("$")[-1] if "$" in internal_doc_id else internal_doc_id
+
+    export_attempts = [
+        # 格式1: docId + exportType (form)
+        {
+            "url": "https://docs.qq.com/v1/export/export_office",
+            "data": {"docId": pad_id, "exportType": 1},
+            "content_type": "application/x-www-form-urlencoded",
+        },
+        # 格式2: padId + domainId + exportType (form)
+        {
+            "url": "https://docs.qq.com/v1/export/export_office",
+            "data": {"padId": pad_id, "domainId": domain_id, "exportType": 1},
+            "content_type": "application/x-www-form-urlencoded",
+        },
+        # 格式3: JSON 格式
+        {
+            "url": "https://docs.qq.com/v1/export/export_office",
+            "data": {"padId": pad_id, "domainId": domain_id, "exportType": 1},
+            "content_type": "application/json",
+        },
+        # 格式4: 尝试 CSV 导出新 API
+        {
+            "url": "https://docs.qq.com/dop-api/export/sheet",
+            "data": {"padId": pad_id, "domainId": domain_id, "exportType": 1},
+            "content_type": "application/x-www-form-urlencoded",
+        },
+    ]
+
+    last_error = None
+    for attempt in export_attempts:
+        try:
+            export_data = attempt["data"]
+            if attempt["content_type"] == "application/json":
+                encoded = json.dumps(export_data).encode()
+            else:
+                encoded = urllib.parse.urlencode(export_data).encode()
+            req_h = {**h, "Content-Type": attempt["content_type"]}
+            req = urllib.request.Request(attempt["url"], data=encoded, headers=req_h, method="POST")
+
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                result = json.loads(resp.read().decode("utf-8"))
+                log(f"Export attempt {export_attempts.index(attempt)+1}: ret={result.get('ret')}, msg={result.get('msg', 'N/A')}")
+
+                if result.get("ret") == 0 or result.get("operationId"):
+                    operation_id = result.get("operationId", "")
+                    if operation_id:
+                        log(f"Export started: operationId={operation_id}")
+                        return _poll_export(cookie, operation_id)
+                    # 无 operationId 但 ret=0 可能直接返回了内容
+                    elif result.get("url"):
+                        return _download_export(result["url"], cookie)
+        except urllib.error.HTTPError as e:
+            body = e.read().decode("utf-8", errors="replace")
+            log(f"Attempt {export_attempts.index(attempt)+1} HTTP {e.code}: {body[:200]}")
+            last_error = e
+        except json.JSONDecodeError:
+            log(f"Attempt {export_attempts.index(attempt)+1}: non-JSON response")
+            continue
+
+    if last_error:
+        raise last_error
+    raise Exception("All export attempts failed")
+
+
+def _poll_export(cookie, operation_id):
+    """轮询导出进度并下载 CSV"""
     h = {**HEADERS, "Cookie": cookie, "Content-Type": "application/x-www-form-urlencoded"}
-    req = urllib.request.Request(EXPORT_URL, data=encoded_data, headers=h, method="POST")
-
-    try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            result = json.loads(resp.read().decode("utf-8"))
-    except urllib.error.HTTPError as e:
-        body = e.read().decode("utf-8", errors="replace")
-        log(f"Export request failed: {e.code} - {body[:500]}")
-        raise
-
-    operation_id = result.get("operationId", "")
-    if not operation_id:
-        log(f"Export response: {json.dumps(result, ensure_ascii=False)[:500]}")
-        raise Exception("No operationId in export response")
-
-    log(f"Export started: operationId={operation_id}")
-
-    # Step 2: 轮询导出进度
     max_wait = 120
     for i in range(max_wait // 2):
         time.sleep(2)
@@ -137,7 +181,6 @@ def export_sheet_as_csv(cookie, internal_doc_id, sheet_id):
             with urllib.request.urlopen(req, timeout=30) as resp:
                 progress = json.loads(resp.read().decode("utf-8"))
         except urllib.error.HTTPError as e:
-            body = e.read().decode("utf-8", errors="replace")
             log(f"Progress check failed: {e.code}")
             continue
 
@@ -145,25 +188,28 @@ def export_sheet_as_csv(cookie, internal_doc_id, sheet_id):
         if status == "success":
             download_url = progress.get("url", "")
             log(f"Export ready: {download_url[:80]}...")
-            # Step 3: 下载 CSV
-            req = urllib.request.Request(download_url, headers={**HEADERS, "Cookie": cookie})
-            with urllib.request.urlopen(req, timeout=60) as resp:
-                csv_content = resp.read()
-            # 尝试解码
-            for encoding in ["utf-8", "gbk", "gb2312", "gb18030"]:
-                try:
-                    return csv_content.decode(encoding)
-                except (UnicodeDecodeError, LookupError):
-                    continue
-            return csv_content.decode("utf-8", errors="replace")
+            return _download_export(download_url, cookie)
 
         elif status == "error":
             log(f"Export failed: {json.dumps(progress, ensure_ascii=False)[:300]}")
             raise Exception("Export failed")
         else:
-            log(f"  Waiting... (status={status})")
+            log(f"  Waiting... ({i+1}s, status={status})")
 
     raise Exception("Export timed out")
+
+
+def _download_export(url, cookie):
+    """下载导出的文件"""
+    req = urllib.request.Request(url, headers={**HEADERS, "Cookie": cookie})
+    with urllib.request.urlopen(req, timeout=60) as resp:
+        csv_content = resp.read()
+    for encoding in ["utf-8", "gbk", "gb2312", "gb18030"]:
+        try:
+            return csv_content.decode(encoding)
+        except (UnicodeDecodeError, LookupError):
+            continue
+    return csv_content.decode("utf-8", errors="replace")
 
 
 def parse_csv_to_entries(csv_text):
