@@ -317,7 +317,7 @@ async function loadData() {
   const cdnUrl = 'https://cdn.jsdelivr.net/gh/liangxiuqingfeng87/credit-query@main/query_compact.json';
   const localUrl = 'query_compact.json';
 
-  for (const baseUrl of [cdnUrl, localUrl]) {
+  for (const baseUrl of [localUrl, cdnUrl]) {
     try {
       const resp = await fetch(baseUrl + '?t=' + Date.now());
       if (!resp.ok) throw new Error('HTTP ' + resp.status);
