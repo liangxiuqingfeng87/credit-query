@@ -107,28 +107,34 @@ def export_sheet_as_csv(cookie, internal_doc_id, sheet_id):
     pad_id = internal_doc_id.split("$")[-1] if "$" in internal_doc_id else internal_doc_id
 
     export_attempts = [
-        # 格式1: docId + exportType (form)
+        # 尝试1: 使用 URL 里的 DOC_ID (DY0FRekZWRmVhZU9P)
+        {
+            "url": "https://docs.qq.com/v1/export/export_office",
+            "data": {"docId": DOC_ID, "exportType": 1},
+            "content_type": "application/x-www-form-urlencoded",
+        },
+        # 尝试2: 使用 URL DOC_ID + domainId
+        {
+            "url": "https://docs.qq.com/v1/export/export_office",
+            "data": {"padId": DOC_ID, "domainId": "300000000", "exportType": 1},
+            "content_type": "application/x-www-form-urlencoded",
+        },
+        # 尝试3: 使用内部 padId (cAQzFVFeaeOO)
         {
             "url": "https://docs.qq.com/v1/export/export_office",
             "data": {"docId": pad_id, "exportType": 1},
             "content_type": "application/x-www-form-urlencoded",
         },
-        # 格式2: padId + domainId + exportType (form)
+        # 尝试4: 内部 padId + domainId (form)
         {
             "url": "https://docs.qq.com/v1/export/export_office",
             "data": {"padId": pad_id, "domainId": domain_id, "exportType": 1},
             "content_type": "application/x-www-form-urlencoded",
         },
-        # 格式3: JSON 格式
+        # 尝试5: padId + docType
         {
             "url": "https://docs.qq.com/v1/export/export_office",
-            "data": {"padId": pad_id, "domainId": domain_id, "exportType": 1},
-            "content_type": "application/json",
-        },
-        # 格式4: 尝试 CSV 导出新 API
-        {
-            "url": "https://docs.qq.com/dop-api/export/sheet",
-            "data": {"padId": pad_id, "domainId": domain_id, "exportType": 1},
+            "data": {"padId": pad_id, "domainId": domain_id, "docType": "sheet", "exportType": 1},
             "content_type": "application/x-www-form-urlencoded",
         },
     ]
