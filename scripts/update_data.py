@@ -49,24 +49,17 @@ def get_doc_info(cookie):
             body = resp.read()
             log(f"API status: {resp.status}, body length: {len(body)}")
             # 腾讯文档返回特殊流式格式：head\njson\n{length}\n{json_data}...
-            # 每个 chunk 独立，需要按长度精确截取
+            # 长度标记不精确，用 raw_decode 解析第一个完整 JSON 对象
             text = body.decode("utf-8", errors="replace")
             try:
                 data = json.loads(text)
             except json.JSONDecodeError:
-                # 找到第一个 chunk 的 JSON: 在原始字节中定位
-                import re
-                m = re.search(rb'\njson\n(\d+)\n', body)
-                if m:
-                    json_len = int(m.group(1))
-                    json_bytes = body[m.end():m.end() + json_len]
-                    data = json.loads(json_bytes.decode("utf-8", errors="replace"))
+                idx = text.find("{")
+                if idx >= 0:
+                    decoder = json.JSONDecoder()
+                    data, _ = decoder.raw_decode(text[idx:])
                 else:
-                    idx = text.find("{")
-                    if idx >= 0:
-                        data = json.loads(text[idx:])
-                    else:
-                        raise
+                    raise
     except urllib.error.HTTPError as e:
         body_str = e.read().decode("utf-8", errors="replace")
         log(f"HTTP {e.code} on get_doc_info: {body_str[:500]}")
