@@ -44,8 +44,20 @@ def get_doc_info(cookie):
     url = f"https://docs.qq.com/dop-api/opendoc?id={DOC_ID}&normal=1"
     h = {**HEADERS, "Cookie": cookie}
     req = urllib.request.Request(url, headers=h)
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        data = json.loads(resp.read().decode("utf-8"))
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            body = resp.read()
+            log(f"API status: {resp.status}, body length: {len(body)}")
+            if len(body) < 50:
+                log(f"Response body: {body[:200]}")
+            data = json.loads(body.decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        body = e.read().decode("utf-8", errors="replace")
+        log(f"HTTP {e.code} on get_doc_info: {body[:500]}")
+        raise
+    except json.JSONDecodeError:
+        log(f"JSON decode failed. Response (first 500 chars): {body[:500]}")
+        raise
 
     # 提取 padId 和 domainId（用于导出 API）
     client_vars = data.get("clientVars", {})
