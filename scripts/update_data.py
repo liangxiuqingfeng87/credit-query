@@ -48,28 +48,25 @@ def get_doc_info(cookie):
         with urllib.request.urlopen(req, timeout=30) as resp:
             body = resp.read()
             log(f"API status: {resp.status}, body length: {len(body)}")
-            # 腾讯文档返回特殊格式：head\njson\n{length}\n{json_data}...
+            # 腾讯文档返回特殊流式格式：head\njson\n{length}\n{json_data}...
+            # 每个 chunk 独立，需要按长度精确截取
             text = body.decode("utf-8", errors="replace")
-            # 尝试直接解析 JSON，失败则提取 JSON 部分
             try:
                 data = json.loads(text)
             except json.JSONDecodeError:
-                # 格式: head\njson\n{length}\n{json...}
-                lines = text.split("\n")
-                json_start = None
-                for i, line in enumerate(lines):
-                    if line.strip().isdigit() and i > 0 and lines[i-1].strip() == "json":
-                        json_start = i + 1
-                        break
-                if json_start is None:
-                    # Fallback: find first '{'
+                # 找到第一个 chunk 的 JSON: 在原始字节中定位
+                import re
+                m = re.search(rb'\njson\n(\d+)\n', body)
+                if m:
+                    json_len = int(m.group(1))
+                    json_bytes = body[m.end():m.end() + json_len]
+                    data = json.loads(json_bytes.decode("utf-8", errors="replace"))
+                else:
                     idx = text.find("{")
                     if idx >= 0:
                         data = json.loads(text[idx:])
                     else:
                         raise
-                else:
-                    data = json.loads("\n".join(lines[json_start:]))
     except urllib.error.HTTPError as e:
         body_str = e.read().decode("utf-8", errors="replace")
         log(f"HTTP {e.code} on get_doc_info: {body_str[:500]}")
