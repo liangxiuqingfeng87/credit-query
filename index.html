@@ -311,7 +311,7 @@ body {
 let DATA = [];
 let dataLoaded = false;
 const MAX_RESULTS = 200;
-const BACKEND_URL = 'https://d0bba188731f18b4-117-177-226-35.serveousercontent.com';
+const BACKEND_URL = 'https://730e5bc27d8bc35a-117-177-226-35.serveousercontent.com';
 
 async function loadData() {
   const cdnUrl = 'https://cdn.jsdelivr.net/gh/liangxiuqingfeng87/credit-query@main/query_compact.json';
@@ -395,10 +395,10 @@ function search(query) {
     // 学分明细查询按钮（仅在身份证号搜索时显示）
     const creditQueryHtml = isIdSearch ? `
       <button class="credit-query-btn" id="cqbtn-${p.i}" onclick="event.stopPropagation();queryCreditDetail('${p.i}')">
-        查询国家平台学分明细
+        查询当日最新学分明细
       </button>
       <div class="credit-query-panel" id="cqpanel-${p.i}">
-        <div class="credit-loading" id="cqloading-${p.i}" style="display:none;"><span class="spinner"></span>正在查询国家平台学分明细...</div>
+        <div class="credit-loading" id="cqloading-${p.i}" style="display:none;"><span class="spinner"></span>正在查询当日最新学分明细...</div>
         <div class="credit-error" id="cqerror-${p.i}" style="display:none;"></div>
         <div class="credit-result-table" id="cqresult-${p.i}" style="display:none;"></div>
         <div class="credit-summary" id="cqsummary-${p.i}" style="display:none;"></div>
@@ -445,7 +445,7 @@ window.queryCreditDetail = async function(idNumber) {
   // 显示面板和加载动画
   panel.classList.add('show');
   loading.style.display = 'block';
-  loading.innerHTML = '<span class="spinner"></span>正在查询国家平台学分明细...';
+  loading.innerHTML = '<span class="spinner"></span>正在查询当日最新学分明细...';
   errorEl.style.display = 'none';
   resultEl.style.display = 'none';
   summaryEl.style.display = 'none';
@@ -513,7 +513,7 @@ window.queryCreditDetail = async function(idNumber) {
         }
 
         btn.disabled = false;
-        btn.textContent = '查询国家平台学分明细';
+        btn.textContent = '查询当日最新学分明细';
         return;
       }
 
@@ -523,7 +523,7 @@ window.queryCreditDetail = async function(idNumber) {
 
       // 还在运行中，更新加载提示
       var elapsed = (i + 1) * 2;
-      loading.innerHTML = '<span class="spinner"></span>正在查询国家平台学分明细（已等待 ' + elapsed + ' 秒）...';
+      loading.innerHTML = '<span class="spinner"></span>正在查询当日最新学分明细（已等待 ' + elapsed + ' 秒）...';
     }
 
     // 超时
@@ -536,7 +536,7 @@ window.queryCreditDetail = async function(idNumber) {
   }
 
   btn.disabled = false;
-  btn.textContent = '查询国家平台学分明细';
+  btn.textContent = '查询当日最新学分明细';
 };
 
 // 初始加载
