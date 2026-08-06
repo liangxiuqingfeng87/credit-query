@@ -48,15 +48,34 @@ def get_doc_info(cookie):
         with urllib.request.urlopen(req, timeout=30) as resp:
             body = resp.read()
             log(f"API status: {resp.status}, body length: {len(body)}")
-            if len(body) < 50:
-                log(f"Response body: {body[:200]}")
-            data = json.loads(body.decode("utf-8"))
+            # 腾讯文档返回特殊格式：head\njson\n{length}\n{json_data}...
+            text = body.decode("utf-8", errors="replace")
+            # 尝试直接解析 JSON，失败则提取 JSON 部分
+            try:
+                data = json.loads(text)
+            except json.JSONDecodeError:
+                # 格式: head\njson\n{length}\n{json...}
+                lines = text.split("\n")
+                json_start = None
+                for i, line in enumerate(lines):
+                    if line.strip().isdigit() and i > 0 and lines[i-1].strip() == "json":
+                        json_start = i + 1
+                        break
+                if json_start is None:
+                    # Fallback: find first '{'
+                    idx = text.find("{")
+                    if idx >= 0:
+                        data = json.loads(text[idx:])
+                    else:
+                        raise
+                else:
+                    data = json.loads("\n".join(lines[json_start:]))
     except urllib.error.HTTPError as e:
-        body = e.read().decode("utf-8", errors="replace")
-        log(f"HTTP {e.code} on get_doc_info: {body[:500]}")
+        body_str = e.read().decode("utf-8", errors="replace")
+        log(f"HTTP {e.code} on get_doc_info: {body_str[:500]}")
         raise
-    except json.JSONDecodeError:
-        log(f"JSON decode failed. Response (first 500 chars): {body[:500]}")
+    except Exception as e:
+        log(f"get_doc_info failed: {e}")
         raise
 
     # 提取 padId 和 domainId（用于导出 API）
