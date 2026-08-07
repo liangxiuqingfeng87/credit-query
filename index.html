@@ -192,6 +192,8 @@ body {
   font-weight: 500;
   cursor: pointer;
   transition: opacity .2s;
+  text-decoration: none;
+  text-align: center;
 }
 .credit-query-btn:active { opacity: .85; }
 .credit-query-btn:disabled { background: #ccc; cursor: not-allowed; }
@@ -304,14 +306,13 @@ body {
 <div class="result-info" id="resultInfo" style="display:none"></div>
 <div class="list" id="list"></div>
 
-<div class="footer">数据来源：26年工作表格 · 更新时间：2026年8月</div>
+<div class="footer">数据来源：26年工作表格 · 更新时间：2026年8月<br>永久访问：liangxiuqingfeng87.github.io/credit-query</div>
 
 <script>
 // 数据将在页面加载后通过 fetch 获取
 let DATA = [];
 let dataLoaded = false;
 const MAX_RESULTS = 200;
-const BACKEND_URL = 'https://730e5bc27d8bc35a-117-177-226-35.serveousercontent.com';
 
 async function loadData() {
   const cdnUrl = 'https://cdn.jsdelivr.net/gh/liangxiuqingfeng87/credit-query@main/query_compact.json';
@@ -392,17 +393,11 @@ function search(query) {
       }).join('');
     }
 
-    // 学分明细查询按钮（仅在身份证号搜索时显示）
+    // 学分明细查询按钮（跳转国家平台）
     const creditQueryHtml = isIdSearch ? `
-      <button class="credit-query-btn" id="cqbtn-${p.i}" onclick="event.stopPropagation();queryCreditDetail('${p.i}')">
-        查询当日最新学分明细
-      </button>
-      <div class="credit-query-panel" id="cqpanel-${p.i}">
-        <div class="credit-loading" id="cqloading-${p.i}" style="display:none;"><span class="spinner"></span>正在查询当日最新学分明细...</div>
-        <div class="credit-error" id="cqerror-${p.i}" style="display:none;"></div>
-        <div class="credit-result-table" id="cqresult-${p.i}" style="display:none;"></div>
-        <div class="credit-summary" id="cqsummary-${p.i}" style="display:none;"></div>
-      </div>` : '';
+      <a href="https://icme.chinacpd.cn/certificateQuery" target="_blank" class="credit-query-btn" onclick="event.stopPropagation();">
+        前往国家平台查询当日最新学分明细
+      </a>` : '';
 
     return `<div class="card" onclick="this.querySelector('.card-detail').classList.toggle('show')">
       <div class="card-top">
@@ -425,119 +420,6 @@ function search(query) {
 document.getElementById('searchInput').addEventListener('input', function(e) {
   search(e.target.value);
 });
-
-// ========== 学分明细查询（从国家平台获取，异步轮询） ==========
-window.queryCreditDetail = async function(idNumber) {
-  console.log('[学分查询] 开始查询:', idNumber);
-
-  var panel = document.getElementById('cqpanel-' + idNumber);
-  var btn = document.getElementById('cqbtn-' + idNumber);
-  var loading = document.getElementById('cqloading-' + idNumber);
-  var errorEl = document.getElementById('cqerror-' + idNumber);
-  var resultEl = document.getElementById('cqresult-' + idNumber);
-  var summaryEl = document.getElementById('cqsummary-' + idNumber);
-
-  if (!panel || !btn) {
-    console.error('[学分查询] DOM元素缺失');
-    return;
-  }
-
-  // 显示面板和加载动画
-  panel.classList.add('show');
-  loading.style.display = 'block';
-  loading.innerHTML = '<span class="spinner"></span>正在查询当日最新学分明细...';
-  errorEl.style.display = 'none';
-  resultEl.style.display = 'none';
-  summaryEl.style.display = 'none';
-  btn.disabled = true;
-  btn.textContent = '查询中...';
-  panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
-
-  console.log('[学分查询] 提交任务:', BACKEND_URL + '/api/credit/query');
-
-  try {
-    // 第一步：提交查询任务
-    var resp = await fetch(BACKEND_URL + '/api/credit/query', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id_number: idNumber })
-    });
-    var submitData = await resp.json();
-    console.log('[学分查询] 任务提交:', submitData);
-
-    if (!submitData.success || !submitData.task_id) {
-      throw new Error(submitData.error || '提交查询失败');
-    }
-
-    var taskId = submitData.task_id;
-
-    // 第二步：轮询结果（最多120秒，每2秒一次）
-    var maxPolls = 60;
-    for (var i = 0; i < maxPolls; i++) {
-      await new Promise(function(r) { setTimeout(r, 2000); });
-
-      var pollResp = await fetch(BACKEND_URL + '/api/credit/result/' + taskId);
-      var pollData = await pollResp.json();
-      console.log('[学分查询] 轮询 ' + (i+1) + ': status=' + pollData.status);
-
-      if (pollData.status === 'done') {
-        var data = pollData.data;
-        loading.style.display = 'none';
-
-        if (data.success && data.items && data.items.length > 0) {
-          var html = '<table class="credit-result-table"><thead><tr>' +
-            '<th class="col-name">课程名称</th>' +
-            '<th class="col-cat">学分类别</th>' +
-            '<th class="col-score">分值</th>' +
-            '<th class="col-time">考核时间</th>' +
-            '</tr></thead><tbody>';
-
-          for (var j = 0; j < data.items.length; j++) {
-            var item = data.items[j];
-            html += '<tr><td>' + (item.course_name || '-') + '</td>' +
-              '<td>' + (item.category || '-') + '</td>' +
-              '<td class="col-score">' + (item.score || 0) + '</td>' +
-              '<td class="col-time">' + (item.exam_time || '-') + '</td></tr>';
-          }
-          html += '</tbody></table>';
-          resultEl.innerHTML = html;
-          resultEl.style.display = 'block';
-          summaryEl.innerHTML = '共 <b>' + data.total_courses + '</b> 门课程，总学分 <b>' + data.total_credits + '</b> 分';
-          summaryEl.style.display = 'block';
-        } else if (data.success) {
-          errorEl.textContent = '未查询到学分明细数据';
-          errorEl.style.display = 'block';
-        } else {
-          errorEl.textContent = data.error || '查询失败';
-          errorEl.style.display = 'block';
-        }
-
-        btn.disabled = false;
-        btn.textContent = '查询当日最新学分明细';
-        return;
-      }
-
-      if (pollData.status === 'error') {
-        throw new Error(pollData.error || '查询失败');
-      }
-
-      // 还在运行中，更新加载提示
-      var elapsed = (i + 1) * 2;
-      loading.innerHTML = '<span class="spinner"></span>正在查询当日最新学分明细（已等待 ' + elapsed + ' 秒）...';
-    }
-
-    // 超时
-    throw new Error('查询超时（2分钟），请重试');
-  } catch (e) {
-    console.error('[学分查询] 异常:', e);
-    loading.style.display = 'none';
-    errorEl.textContent = e.message || '网络错误，请检查连接后重试';
-    errorEl.style.display = 'block';
-  }
-
-  btn.disabled = false;
-  btn.textContent = '查询当日最新学分明细';
-};
 
 // 初始加载
 loadData();
