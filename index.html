@@ -23,6 +23,25 @@ body {
 }
 .header h1 { font-size: 20px; font-weight: 600; }
 .header .stats { font-size: 13px; opacity: .85; margin-top: 4px; }
+.marquee {
+  overflow: hidden;
+  white-space: nowrap;
+  background: #fff;
+  border-bottom: 2px solid #c5221f;
+}
+.marquee-inner {
+  display: inline-block;
+  padding: 8px 0;
+  animation: marquee 12s linear infinite;
+  color: #c5221f;
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 2px;
+}
+@keyframes marquee {
+  0% { transform: translateX(100vw); }
+  100% { transform: translateX(-100%); }
+}
 .notice-box {
   margin: 10px 12px;
   padding: 12px 14px;
@@ -277,6 +296,8 @@ body {
 <div class="header">
   <h1>2026年继续医学教育学分查询</h1>
 </div>
+
+<div class="marquee"><div class="marquee-inner">第一步国家平台上分 → 省平台上分 → 地市州平台查分</div></div>
 
 <div class="notice-box">
   <div class="notice-title">26年学分查分流程</div>
