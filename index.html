@@ -316,10 +316,11 @@ const MAX_RESULTS = 200;
 const BACKEND_URL = 'https://credit-uery-api-ivufmamtlh.cn-hangzhou.fcapp.run';
 
 async function loadData() {
+  const ossUrl = 'https://credit-query-data.oss-cn-hangzhou.aliyuncs.com/query_compact.json';
   const cdnUrl = 'https://cdn.jsdelivr.net/gh/liangxiuqingfeng87/credit-query@main/query_compact.json';
   const localUrl = 'query_compact.json';
 
-  for (const baseUrl of [localUrl, cdnUrl]) {
+  for (const baseUrl of [ossUrl, localUrl, cdnUrl]) {
     try {
       const resp = await fetch(baseUrl + '?t=' + Date.now());
       if (!resp.ok) throw new Error('HTTP ' + resp.status);
