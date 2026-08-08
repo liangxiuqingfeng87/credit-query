@@ -313,7 +313,7 @@ body {
 let DATA = [];
 let dataLoaded = false;
 const MAX_RESULTS = 200;
-const BACKEND_URL = 'https://8999ce9f144e79c1-117-177-226-35.serveousercontent.com';
+const BACKEND_URL = 'https://credit-uery-api-ivufmamtlh.cn-hangzhou.fcapp.run';
 
 async function loadData() {
   const cdnUrl = 'https://cdn.jsdelivr.net/gh/liangxiuqingfeng87/credit-query@main/query_compact.json';
@@ -428,7 +428,7 @@ document.getElementById('searchInput').addEventListener('input', function(e) {
   search(e.target.value);
 });
 
-// ========== 学分明细查询（从国家平台获取，异步轮询） ==========
+// ========== 学分明细查询（阿里云FC同步模式，24小时在线） ==========
 window.queryCreditDetail = async function(idNumber) {
   console.log('[学分查询] 开始查询:', idNumber);
 
@@ -447,7 +447,7 @@ window.queryCreditDetail = async function(idNumber) {
   // 显示面板和加载动画
   panel.classList.add('show');
   loading.style.display = 'block';
-  loading.innerHTML = '<span class="spinner"></span>正在查询当日最新学分明细...';
+  loading.innerHTML = '<span class="spinner"></span>正在查询当日最新学分明细（预计15-30秒）...';
   errorEl.style.display = 'none';
   resultEl.style.display = 'none';
   summaryEl.style.display = 'none';
@@ -455,81 +455,47 @@ window.queryCreditDetail = async function(idNumber) {
   btn.textContent = '查询中...';
   panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
-  console.log('[学分查询] 提交任务:', BACKEND_URL + '/api/credit/query');
+  console.log('[学分查询] 发送请求:', BACKEND_URL + '/api/credit/query');
 
   try {
-    // 第一步：提交查询任务
+    // 同步查询：直接等待结果返回
     var resp = await fetch(BACKEND_URL + '/api/credit/query', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id_number: idNumber })
     });
-    var submitData = await resp.json();
-    console.log('[学分查询] 任务提交:', submitData);
+    var data = await resp.json();
+    console.log('[学分查询] 收到结果:', data);
 
-    if (!submitData.success || !submitData.task_id) {
-      throw new Error(submitData.error || '提交查询失败');
-    }
+    loading.style.display = 'none';
 
-    var taskId = submitData.task_id;
+    if (data.success && data.items && data.items.length > 0) {
+      var html = '<table class="credit-result-table"><thead><tr>' +
+        '<th class="col-name">课程名称</th>' +
+        '<th class="col-cat">学分类别</th>' +
+        '<th class="col-score">分值</th>' +
+        '<th class="col-time">考核时间</th>' +
+        '</tr></thead><tbody>';
 
-    // 第二步：轮询结果（最多120秒，每2秒一次）
-    var maxPolls = 60;
-    for (var i = 0; i < maxPolls; i++) {
-      await new Promise(function(r) { setTimeout(r, 2000); });
-
-      var pollResp = await fetch(BACKEND_URL + '/api/credit/result/' + taskId);
-      var pollData = await pollResp.json();
-      console.log('[学分查询] 轮询 ' + (i+1) + ': status=' + pollData.status);
-
-      if (pollData.status === 'done') {
-        var data = pollData.data;
-        loading.style.display = 'none';
-
-        if (data.success && data.items && data.items.length > 0) {
-          var html = '<table class="credit-result-table"><thead><tr>' +
-            '<th class="col-name">课程名称</th>' +
-            '<th class="col-cat">学分类别</th>' +
-            '<th class="col-score">分值</th>' +
-            '<th class="col-time">考核时间</th>' +
-            '</tr></thead><tbody>';
-
-          for (var j = 0; j < data.items.length; j++) {
-            var item = data.items[j];
-            html += '<tr><td>' + (item.course_name || '-') + '</td>' +
-              '<td>' + (item.category || '-') + '</td>' +
-              '<td class="col-score">' + (item.score || 0) + '</td>' +
-              '<td class="col-time">' + (item.exam_time || '-') + '</td></tr>';
-          }
-          html += '</tbody></table>';
-          resultEl.innerHTML = html;
-          resultEl.style.display = 'block';
-          summaryEl.innerHTML = '共 <b>' + data.total_courses + '</b> 门课程，总学分 <b>' + data.total_credits + '</b> 分';
-          summaryEl.style.display = 'block';
-        } else if (data.success) {
-          errorEl.textContent = '未查询到学分明细数据';
-          errorEl.style.display = 'block';
-        } else {
-          errorEl.textContent = data.error || '查询失败';
-          errorEl.style.display = 'block';
-        }
-
-        btn.disabled = false;
-        btn.textContent = '查询当日最新学分明细';
-        return;
+      for (var j = 0; j < data.items.length; j++) {
+        var item = data.items[j];
+        html += '<tr><td>' + (item.course_name || '-') + '</td>' +
+          '<td>' + (item.category || '-') + '</td>' +
+          '<td class="col-score">' + (item.score || 0) + '</td>' +
+          '<td class="col-time">' + (item.exam_time || '-') + '</td></tr>';
       }
-
-      if (pollData.status === 'error') {
-        throw new Error(pollData.error || '查询失败');
-      }
-
-      // 还在运行中，更新加载提示
-      var elapsed = (i + 1) * 2;
-      loading.innerHTML = '<span class="spinner"></span>正在查询当日最新学分明细（已等待 ' + elapsed + ' 秒）...';
+      html += '</tbody></table>';
+      resultEl.innerHTML = html;
+      resultEl.style.display = 'block';
+      summaryEl.innerHTML = '共 <b>' + data.total_courses + '</b> 门课程，总学分 <b>' + data.total_credits + '</b> 分';
+      summaryEl.style.display = 'block';
+    } else if (data.success) {
+      errorEl.textContent = '未查询到学分明细数据';
+      errorEl.style.display = 'block';
+    } else {
+      errorEl.textContent = data.error || '查询失败';
+      errorEl.style.display = 'block';
     }
-
-    // 超时
-    throw new Error('查询超时（2分钟），请重试');
   } catch (e) {
     console.error('[学分查询] 异常:', e);
     loading.style.display = 'none';
