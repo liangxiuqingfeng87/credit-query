@@ -23,6 +23,7 @@ body {
 }
 .header h1 { font-size: 20px; font-weight: 600; }
 .header .stats { font-size: 13px; opacity: .85; margin-top: 4px; }
+.header .update-time { font-size: 12px; opacity: .7; margin-top: 2px; }
 .marquee {
   overflow: hidden;
   white-space: nowrap;
@@ -295,6 +296,8 @@ body {
 
 <div class="header">
   <h1>2026年继续医学教育学分查询</h1>
+  <div class="stats">共 <span id="totalCount">-</span> 人，已达标 <span id="doneCount">-</span> 人</div>
+  <div class="update-time" id="updateTime"></div>
 </div>
 
 <div class="marquee"><div class="marquee-inner">第一步国家平台上分→第二步省平台上分→第三步地市州平台查分</div></div>
@@ -345,7 +348,16 @@ async function loadData() {
     try {
       const resp = await fetch(baseUrl + '?t=' + Date.now());
       if (!resp.ok) throw new Error('HTTP ' + resp.status);
-      DATA = await resp.json();
+      const raw = await resp.json();
+      // 兼容新旧格式：新格式 {data:[...], updated:"..."}, 旧格式 [...]
+      if (Array.isArray(raw)) {
+        DATA = raw;
+      } else {
+        DATA = raw.data || [];
+        if (raw.updated) {
+          document.getElementById('updateTime').textContent = '数据更新：' + raw.updated;
+        }
+      }
       dataLoaded = true;
       updateStats();
       showHint();
