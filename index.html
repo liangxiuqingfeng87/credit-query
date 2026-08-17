@@ -329,7 +329,7 @@ body {
 <div class="result-info" id="resultInfo" style="display:none"></div>
 <div class="list" id="list"></div>
 
-<div class="footer">数据来源：26年工作表格 · 更新时间：2026年8月8日</div>
+<div class="footer" id="footerInfo">数据来源：26年工作表格 · 更新时间：加载中...</div>
 
 <script>
 // 数据将在页面加载后通过 fetch 获取
@@ -349,13 +349,19 @@ async function loadData() {
       if (!resp.ok) throw new Error('HTTP ' + resp.status);
       const raw = await resp.json();
       // 兼容新旧格式：新格式 {data:[...], updated:"..."}, 旧格式 [...]
+      let updatedTime = '';
       if (Array.isArray(raw)) {
         DATA = raw;
       } else {
         DATA = raw.data || [];
-        if (raw.updated) {
-          document.getElementById('updateTime').textContent = '数据更新：' + raw.updated;
-        }
+        updatedTime = raw.updated || '';
+      }
+      if (updatedTime) {
+        document.getElementById('updateTime').textContent = '数据更新：' + updatedTime;
+        document.getElementById('footerInfo').textContent = '数据来源：26年工作表格 · 更新时间：' + updatedTime;
+      } else {
+        document.getElementById('updateTime').textContent = '数据更新：' + new Date().toLocaleString('zh-CN');
+        document.getElementById('footerInfo').textContent = '数据来源：26年工作表格 · 更新时间：' + new Date().toLocaleString('zh-CN');
       }
       dataLoaded = true;
       updateStats();
@@ -367,6 +373,7 @@ async function loadData() {
   }
 
   document.getElementById('list').innerHTML = '<div class="empty"><div class="empty-text">数据加载失败，请检查网络后刷新重试</div></div>';
+  document.getElementById('footerInfo').textContent = '数据来源：26年工作表格 · 更新时间：加载失败';
 }
 
 function updateStats() {
