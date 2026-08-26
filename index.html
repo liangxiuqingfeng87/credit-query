@@ -297,6 +297,7 @@ body {
 <div class="header">
   <h1>2026年继续医学教育学分查询</h1>
   <div class="update-time" id="updateTime"></div>
+  <div class="stats" id="statsInfo">总人数：加载中…</div>
 </div>
 
 <div class="marquee"><div class="marquee-inner">第一步国家平台上分→第二步省平台上分→第三步地市州平台查分</div></div>
@@ -379,8 +380,10 @@ async function loadData() {
 function updateStats() {
   const total = DATA.length;
   const done = DATA.filter(p => p.dn).length;
-  document.getElementById('totalCount').textContent = total;
-  document.getElementById('doneCount').textContent = done;
+  const statsEl = document.getElementById('statsInfo');
+  if (statsEl) {
+    statsEl.textContent = `总人数：${total.toLocaleString()} · 已达标：${done.toLocaleString()} · 未达标：${(total - done).toLocaleString()}`;
+  }
 }
 
 function showHint() {
